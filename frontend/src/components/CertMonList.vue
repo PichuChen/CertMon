@@ -52,17 +52,34 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
+const domains = ref([])
 
-// 範例資料，實際可由父層 props 或 API 傳入
-const domains = ref([
-  { domain: 'example.com', expiry: '2024/07/01', daysLeft: 23, status: 'warning' },
-  { domain: 'www.test.com', expiry: '2024/12/20', daysLeft: 195, status: 'ok' },
-  { domain: 'api.foo.com', expiry: '2025/03/15', daysLeft: 280, status: 'ok' },
-])
+onMounted(async () => {
+  try {
+    const res = await fetch('/api/domains')
+    if (!res.ok) throw new Error('API error')
+    const data = await res.json()
+    // 轉換後端欄位為前端顯示格式
+    domains.value = (data.domains || []).map(item => ({
+      domain: item.domain,
+      expiry: item.valid_to ? item.valid_to.slice(0, 10).replace(/-/g, '/') : '',
+      daysLeft: item.days_left,
+      status: convertStatus(item.status)
+    }))
+  } catch (e) {
+    domains.value = []
+  }
+})
+
+function convertStatus(status) {
+  if (status === 'valid') return 'ok'
+  if (status === 'expiring') return 'warning'
+  return 'error'
+}
 
 function statusDotColor(status) {
   if (status === 'ok') return 'bg-green-400'
