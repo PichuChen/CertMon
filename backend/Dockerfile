@@ -11,5 +11,7 @@ FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/backend .
 COPY --from=builder /app/model ./model
+COPY wait-for-postgres.sh /wait-for-postgres.sh
+RUN chmod +x /wait-for-postgres.sh
 EXPOSE 8080
-CMD ["./backend"]
+CMD ["/bin/sh", "-c", "/wait-for-postgres.sh $DB_HOST:5432 60 && ./backend"]
