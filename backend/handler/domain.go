@@ -127,6 +127,10 @@ func GetDomainHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"error": "empty domain"}`))
 		return
 	}
+
+	var status, validFrom, validTo, issuer, serial, san string
+	var daysLeft int
+
 	// 確保 domain 沒有 http(s):// 前綴
 	domain = strings.TrimPrefix(domain, "http://")
 	domain = strings.TrimPrefix(domain, "https://")
@@ -136,8 +140,6 @@ func GetDomainHandler(w http.ResponseWriter, r *http.Request) {
 		host += ":443"
 	}
 	conn, err := tls.Dial("tcp", host, nil)
-	var status, validFrom, validTo, issuer, serial, san string
-	var daysLeft int
 	if err != nil {
 		status = "disconnected"
 	} else {
@@ -197,6 +199,63 @@ func GetDomainHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// CheckAndLogDomain 查詢憑證並寫入 log
+func CheckAndLogDomain(domain string) {
+	// 確保 domain 沒有 http(s):// 前綴
+	domain = strings.TrimPrefix(domain, "http://")
+	domain = strings.TrimPrefix(domain, "https://")
+	// 預設 port 443
+	host := domain
+	if !strings.Contains(host, ":") {
+		host += ":443"
+	}
+	conn, err := tls.Dial("tcp", host, nil)
+	var status, validFrom, validTo, issuer, serial, san string
+	var daysLeft int
+	if err != nil {
+		status = "disconnected"
+	} else {
+		defer conn.Close()
+		certs := conn.ConnectionState().PeerCertificates
+		if len(certs) == 0 {
+			status = "error"
+		} else {
+			cert := certs[0]
+			validToTime := cert.NotAfter.UTC()
+			validFrom = cert.NotBefore.Format(time.RFC3339)
+			validTo = cert.NotAfter.Format(time.RFC3339)
+			daysLeft = int(time.Until(validToTime).Hours() / 24)
+			issuer = cert.Issuer.CommonName
+			serial = cert.SerialNumber.String()
+			san = strings.Join(cert.DNSNames, ",")
+			status = "valid"
+			if daysLeft < 0 {
+				status = "expired"
+			} else if daysLeft < 30 {
+				status = "expiring"
+			}
+		}
+	}
+	_, _ = db.Exec(`UPDATE domains SET updated_at=NOW() WHERE domain=$1`, domain)
+	var domainID int64
+	db.QueryRow(`SELECT id FROM domains WHERE domain=$1`, domain).Scan(&domainID)
+	extra := map[string]interface{}{
+		"issuer": issuer,
+		"serial": serial,
+		"san":    san,
+		"error": func() string {
+			if err != nil {
+				return err.Error()
+			}
+			return ""
+		}(),
+	}
+	extraJSON, _ := json.Marshal(extra)
+	_, _ = db.Exec(`INSERT INTO domain_logs (domain_id, checked_at, status, valid_from, valid_to, days_left, extra) VALUES ($1, NOW(), $2, $3, $4, $5, $6)`,
+		domainID, status, validFrom, validTo, daysLeft, extraJSON,
+	)
+}
+
 // AddDomainHandler 新增監控 Domain
 func AddDomainHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -232,4 +291,6 @@ func AddDomainHandler(w http.ResponseWriter, r *http.Request) {
 		"id":     id,
 		"domain": req.Domain,
 	})
+	// 新增成功後立即查詢一次憑證
+	go CheckAndLogDomain(req.Domain)
 }

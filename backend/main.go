@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
@@ -28,6 +29,20 @@ func main() {
 	// 初始化 DB
 	handler.InitDB()
 
+	// 啟動 background worker，每 30 分鐘自動檢查所有 domain
+	go func() {
+		for {
+			log.Println("[CertMon] 執行自動 SSL 憑證狀態檢查...")
+			domains, err := getAllDomains()
+			if err == nil {
+				for _, d := range domains {
+					go handler.CheckAndLogDomain(d)
+				}
+			}
+			time.Sleep(30 * time.Minute)
+		}
+	}()
+
 	mux := http.NewServeMux()
 	// API 路由註冊
 	mux.HandleFunc("/api/domains", func(w http.ResponseWriter, r *http.Request) {
@@ -43,4 +58,26 @@ func main() {
 	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
+}
+
+// 取得所有 domain 名稱
+func getAllDomains() ([]string, error) {
+	db, err := sql.Open("postgres", "host=localhost port=5432 user=certmon password=certmon dbname=certmon sslmode=disable")
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	rows, err := db.Query("SELECT domain FROM domains")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var domains []string
+	for rows.Next() {
+		var d string
+		if err := rows.Scan(&d); err == nil {
+			domains = append(domains, d)
+		}
+	}
+	return domains, nil
 }
