@@ -5,10 +5,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
-    "vue": "^3.5.16"
+    "vue": "^3.5.16",
+    "vue-router": "^4.5.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
