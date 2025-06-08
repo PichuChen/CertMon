@@ -15,6 +15,7 @@ import (
 )
 
 func main() {
+	log.Println("CertMon backend server starting...")
 	// 讀取 DB 連線資訊，優先用環境變數
 	host := os.Getenv("DB_HOST")
 	if host == "" {
