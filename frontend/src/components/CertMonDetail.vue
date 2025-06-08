@@ -1,0 +1,101 @@
+<template>
+  <div class="min-h-screen flex flex-col items-center justify-center bg-[#F9FAFB] py-8">
+    <!-- Logo -->
+    <img src="/src/logo.png" alt="CertMon Logo" class="w-20 h-20 mb-4 mx-auto" />
+    <!-- 主標題 -->
+    <h1 class="text-3xl font-extrabold text-blue-400 mb-1 tracking-wide">憑證詳細</h1>
+    <!-- 副標題 -->
+    <div class="text-base text-slate-500 mb-8">這是 {{ cert.domain }} 的 SSL 憑證詳細資訊唷！</div>
+
+    <!-- 卡片 -->
+    <div class="bg-white rounded-[16px] shadow-md w-[800px] px-8 py-8 mb-6">
+      <template v-if="!error">
+        <div class="grid grid-cols-2 gap-x-8 gap-y-4">
+          <div class="flex">
+            <span class="w-32 text-slate-500 text-[16px] font-medium">網域 Domain</span>
+            <span class="text-slate-800 text-[16px] font-normal">{{ cert.domain }}</span>
+          </div>
+          <div class="flex">
+            <span class="w-32 text-slate-500 text-[16px] font-medium">簽發單位</span>
+            <span class="text-slate-800 text-[16px] font-normal">{{ cert.issuer }}</span>
+          </div>
+          <div class="flex">
+            <span class="w-32 text-slate-500 text-[16px] font-medium">簽發日</span>
+            <span class="text-slate-800 text-[16px] font-normal">{{ cert.startDate }}</span>
+          </div>
+          <div class="flex">
+            <span class="w-32 text-slate-500 text-[16px] font-medium">到期日</span>
+            <span class="text-slate-800 text-[16px] font-normal">{{ cert.expiry }}</span>
+          </div>
+          <div class="flex">
+            <span class="w-32 text-slate-500 text-[16px] font-medium">剩餘天數</span>
+            <span class="text-slate-800 text-[16px] font-normal">{{ cert.daysLeft }}</span>
+          </div>
+          <div class="flex items-center">
+            <span class="w-32 text-slate-500 text-[16px] font-medium">狀態</span>
+            <span :class="['inline-block w-3 h-3 rounded-full mr-2', statusDotColor(cert.status)]"></span>
+            <span class="text-slate-800 text-[16px] font-normal">{{ statusText(cert.status) }}</span>
+          </div>
+          <div class="flex">
+            <span class="w-32 text-slate-500 text-[16px] font-medium">憑證序號</span>
+            <span class="text-slate-800 text-[16px] font-normal">{{ cert.serial }}</span>
+          </div>
+          <div class="flex">
+            <span class="w-32 text-slate-500 text-[16px] font-medium">憑證類型</span>
+            <span class="text-slate-800 text-[16px] font-normal">{{ cert.type }}</span>
+          </div>
+          <div class="flex col-span-2">
+            <span class="w-32 text-slate-500 text-[16px] font-medium">SAN</span>
+            <span class="text-slate-800 text-[16px] font-normal">{{ cert.san }}</span>
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <div class="text-slate-500 text-base text-center py-12 font-medium">
+          找不到憑證資料，請重新整理或回到列表頁
+        </div>
+      </template>
+    </div>
+    <!-- 按鈕區 -->
+    <div class="flex gap-4">
+      <button class="bg-blue-400 hover:bg-blue-500 text-white text-base px-8 py-3 rounded-[16px] font-semibold transition" @click="goBack">
+        返回監控列表
+      </button>
+      <button class="bg-slate-200 text-slate-500 text-base px-8 py-3 rounded-[16px] font-semibold transition" disabled>
+        複製憑證
+      </button>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+const route = useRoute()
+const router = useRouter()
+
+// 靜態資料，實際可改為 API 請求
+const domains = [
+  { domain: 'example.com', expiry: '2024/07/01', daysLeft: 23, status: 'warning', issuer: 'Let\'s Encrypt', startDate: '2024/04/01', serial: '123456', type: 'DV', san: 'example.com,www.example.com' },
+  { domain: 'www.test.com', expiry: '2024/12/20', daysLeft: 195, status: 'ok', issuer: 'Google Trust', startDate: '2023/12/20', serial: '654321', type: 'OV', san: 'www.test.com' },
+  { domain: 'api.foo.com', expiry: '2025/03/15', daysLeft: 280, status: 'ok', issuer: 'Sectigo', startDate: '2024/03/15', serial: 'abcdef', type: 'EV', san: 'api.foo.com' },
+]
+
+const cert = computed(() => domains.find(d => d.domain === route.params.domain))
+const error = computed(() => !cert.value)
+
+function statusDotColor(status) {
+  if (status === 'ok') return 'bg-green-400'
+  if (status === 'warning') return 'bg-yellow-400'
+  return 'bg-red-400'
+}
+function statusText(status) {
+  if (status === 'ok') return '正常'
+  if (status === 'warning') return '快到期'
+  return '已過期/斷線'
+}
+function goBack() {
+  router.push({ name: 'list' })
+}
+</script>

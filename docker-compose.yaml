@@ -1,0 +1,31 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=certmon
+      - DB_PASS=certmon
+      - DB_NAME=certmon
+    depends_on:
+      - postgres
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: certmon
+      POSTGRES_PASSWORD: certmon
+      POSTGRES_DB: certmon
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
