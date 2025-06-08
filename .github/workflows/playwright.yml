@@ -9,22 +9,26 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build and Start All Services
+        run: docker-compose up -d --build
+      - name: Wait for Backend
+        run: npx wait-on http://localhost:8080
+      - name: Wait for Frontend
+        run: npx wait-on http://localhost:5173
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
       - name: Install dependencies
         run: npm ci
+        working-directory: ./frontend
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
-      - name: Start Vite dev server
-        run: npm run dev &
-      - name: Wait for Vite dev server
-        run: npx wait-on http://localhost:5173
+        working-directory: ./frontend
       - name: Run Playwright tests
         run: npx playwright test
+        working-directory: ./frontend
