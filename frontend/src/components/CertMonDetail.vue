@@ -1,52 +1,54 @@
 <template>
-  <div class="min-h-screen flex flex-col items-center justify-center bg-[#F9FAFB] py-8">
+  <div class="min-h-screen flex flex-col items-center justify-center bg-[#F9FAFB] py-8 px-2">
     <!-- Logo -->
     <img src="/src/logo.png" alt="CertMon Logo" class="w-20 h-20 mb-4 mx-auto" />
     <!-- 主標題 -->
-    <h1 class="text-3xl font-extrabold text-blue-400 mb-1 tracking-wide">憑證詳細</h1>
+    <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-blue-400 mb-1 tracking-wide">憑證詳細</h1>
     <!-- 副標題 -->
-    <div class="text-base text-slate-500 mb-8">這是 {{ cert.domain }} 的 SSL 憑證詳細資訊唷！</div>
+    <div class="text-sm sm:text-base text-slate-500 mb-8">
+      這是 {{ cert.domain }} 的 SSL 憑證詳細資訊喔！
+    </div>
 
     <!-- 卡片 -->
-    <div class="bg-white rounded-[16px] shadow-md w-[800px] px-8 py-8 mb-6">
+    <div class="bg-white rounded-[16px] shadow-md w-full max-w-[800px] px-2 sm:px-8 py-8 mb-6">
       <template v-if="!error">
-        <div class="grid grid-cols-2 gap-x-8 gap-y-4">
-          <div class="flex">
-            <span class="w-32 text-slate-500 text-[16px] font-medium">網域 Domain</span>
-            <span class="text-slate-800 text-[16px] font-normal">{{ cert.domain }}</span>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 sm:gap-x-8 gap-y-4">
+          <div class="flex flex-col sm:flex-row">
+            <span class="w-32 text-slate-500 text-[15px] sm:text-[16px] font-medium">網域 Domain</span>
+            <span class="text-slate-800 text-[15px] sm:text-[16px] font-normal break-all">{{ cert.domain }}</span>
           </div>
-          <div class="flex">
-            <span class="w-32 text-slate-500 text-[16px] font-medium">簽發單位</span>
-            <span class="text-slate-800 text-[16px] font-normal">{{ cert.issuer }}</span>
+          <div class="flex flex-col sm:flex-row">
+            <span class="w-32 text-slate-500 text-[15px] sm:text-[16px] font-medium">簽發單位</span>
+            <span class="text-slate-800 text-[15px] sm:text-[16px] font-normal break-all">{{ cert.issuer }}</span>
           </div>
-          <div class="flex">
-            <span class="w-32 text-slate-500 text-[16px] font-medium">簽發日</span>
-            <span class="text-slate-800 text-[16px] font-normal">{{ cert.startDate }}</span>
+          <div class="flex flex-col sm:flex-row">
+            <span class="w-32 text-slate-500 text-[15px] sm:text-[16px] font-medium">簽發日</span>
+            <span class="text-slate-800 text-[15px] sm:text-[16px] font-normal">{{ cert.startDate }}</span>
           </div>
-          <div class="flex">
-            <span class="w-32 text-slate-500 text-[16px] font-medium">到期日</span>
-            <span class="text-slate-800 text-[16px] font-normal">{{ cert.expiry }}</span>
+          <div class="flex flex-col sm:flex-row">
+            <span class="w-32 text-slate-500 text-[15px] sm:text-[16px] font-medium">到期日</span>
+            <span class="text-slate-800 text-[15px] sm:text-[16px] font-normal">{{ cert.expiry }}</span>
           </div>
-          <div class="flex">
-            <span class="w-32 text-slate-500 text-[16px] font-medium">剩餘天數</span>
-            <span class="text-slate-800 text-[16px] font-normal">{{ cert.daysLeft }}</span>
+          <div class="flex flex-col sm:flex-row">
+            <span class="w-32 text-slate-500 text-[15px] sm:text-[16px] font-medium">剩餘天數</span>
+            <span class="text-slate-800 text-[15px] sm:text-[16px] font-normal">{{ cert.daysLeft }}</span>
           </div>
-          <div class="flex items-center">
-            <span class="w-32 text-slate-500 text-[16px] font-medium">狀態</span>
+          <div class="flex flex-col sm:flex-row items-start sm:items-center">
+            <span class="w-32 text-slate-500 text-[15px] sm:text-[16px] font-medium">狀態</span>
             <span :class="['inline-block w-3 h-3 rounded-full mr-2', statusDotColor(cert.status)]"></span>
-            <span class="text-slate-800 text-[16px] font-normal">{{ statusText(cert.status) }}</span>
+            <span class="text-slate-800 text-[15px] sm:text-[16px] font-normal">{{ statusText(cert.status) }}</span>
           </div>
-          <div class="flex">
-            <span class="w-32 text-slate-500 text-[16px] font-medium">憑證序號</span>
-            <span class="text-slate-800 text-[16px] font-normal">{{ cert.serial }}</span>
+          <div class="flex flex-col sm:flex-row">
+            <span class="w-32 text-slate-500 text-[15px] sm:text-[16px] font-medium">憑證序號</span>
+            <span class="text-slate-800 text-[15px] sm:text-[16px] font-normal break-all">{{ cert.serial }}</span>
           </div>
-          <div class="flex">
-            <span class="w-32 text-slate-500 text-[16px] font-medium">憑證類型</span>
-            <span class="text-slate-800 text-[16px] font-normal">{{ cert.type }}</span>
+          <div class="flex flex-col sm:flex-row">
+            <span class="w-32 text-slate-500 text-[15px] sm:text-[16px] font-medium">憑證類型</span>
+            <span class="text-slate-800 text-[15px] sm:text-[16px] font-normal">{{ cert.type }}</span>
           </div>
-          <div class="flex col-span-2">
-            <span class="w-32 text-slate-500 text-[16px] font-medium">SAN</span>
-            <span class="text-slate-800 text-[16px] font-normal">{{ cert.san }}</span>
+          <div class="flex flex-col sm:flex-row col-span-1 sm:col-span-2">
+            <span class="w-32 text-slate-500 text-[15px] sm:text-[16px] font-medium">SAN</span>
+            <span class="text-slate-800 text-[15px] sm:text-[16px] font-normal break-all">{{ cert.san }}</span>
           </div>
         </div>
       </template>
@@ -57,11 +59,11 @@
       </template>
     </div>
     <!-- 按鈕區 -->
-    <div class="flex gap-4">
-      <button class="bg-blue-400 hover:bg-blue-500 text-white text-base px-8 py-3 rounded-[16px] font-semibold transition" @click="goBack">
+    <div class="flex flex-col sm:flex-row gap-4 w-full max-w-xs sm:max-w-none sm:w-auto justify-center">
+      <button class="bg-blue-400 hover:bg-blue-500 text-white text-base px-6 sm:px-8 py-3 rounded-[16px] font-semibold transition w-full sm:w-auto" @click="goBack">
         返回監控列表
       </button>
-      <button class="bg-slate-200 text-slate-500 text-base px-8 py-3 rounded-[16px] font-semibold transition" disabled>
+      <button class="bg-slate-200 text-slate-500 text-base px-6 sm:px-8 py-3 rounded-[16px] font-semibold transition w-full sm:w-auto" disabled>
         複製憑證
       </button>
     </div>
