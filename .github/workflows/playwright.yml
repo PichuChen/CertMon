@@ -16,7 +16,7 @@ jobs:
       - name: Build and Start All Services
         run: docker compose up -d --build
       - name: Wait for Backend
-        run: npx wait-on --timeout 12000 http://localhost:8080
+        run: npx wait-on --timeout 60000 http://localhost:8080
       - name: Wait for Frontend
         run: npx wait-on --timeout 12000 http://localhost:5173
       - name: Setup Node.js

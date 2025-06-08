@@ -2,8 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -13,8 +15,29 @@ import (
 )
 
 func main() {
-	// 讀取 DB 連線資訊（可用 os.Getenv 或直接寫死測試）
-	dsn := "host=localhost port=5432 user=certmon password=certmon dbname=certmon sslmode=disable"
+	// 讀取 DB 連線資訊，優先用環境變數
+	host := os.Getenv("DB_HOST")
+	if host == "" {
+		host = "localhost"
+	}
+	port := os.Getenv("DB_PORT")
+	if port == "" {
+		port = "5432"
+	}
+	user := os.Getenv("DB_USER")
+	if user == "" {
+		user = "certmon"
+	}
+	pass := os.Getenv("DB_PASS")
+	if pass == "" {
+		pass = "certmon"
+	}
+	dbname := os.Getenv("DB_NAME")
+	if dbname == "" {
+		dbname = "certmon"
+	}
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, pass, dbname)
+
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatalf("failed to connect db: %v", err)
