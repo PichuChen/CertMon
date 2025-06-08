@@ -72,11 +72,11 @@ go run main.go
 
 以下為 CertMon 系統的實際畫面截圖：
 
-![CertMon 截圖1](docs/screenshots/螢幕擷取畫面 2025-06-09 012018.png)
+![CertMon 截圖1](docs/screenshots/screenshot_1.png)
 
-![CertMon 截圖2](docs/screenshots/螢幕擷取畫面 2025-06-09 012110.png)
+![CertMon 截圖2](docs/screenshots/screenshot_2.png)
 
-![CertMon 截圖3](docs/screenshots/螢幕擷取畫面 2025-06-09 012124.png)
+![CertMon 截圖3](docs/screenshots/screenshot_3.png)
 
 ---
 
