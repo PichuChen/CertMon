@@ -32,4 +32,4 @@ npm install -D playwright @playwright/test
 npx playwright install
 ```
 
-CI 會自動執行 E2E 測試，設定檔於 `.github/workflows/playwright.yml`。
+CI 會自動執行 E2E 測試，設定檔於專案根目錄 `.github/workflows/playwright.yml`。
