@@ -50,7 +50,7 @@ func InitDB() {
 	}
 }
 
-// ListDomainsHandler 回傳資料庫內容
+// ListDomainsHandler 回傳資料庫內容，並從 domain_logs 取得最新狀態
 func ListDomainsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method != http.MethodGet {
@@ -58,7 +58,9 @@ func ListDomainsHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"error": "method not allowed"}`))
 		return
 	}
-	rows, err := db.Query(`SELECT id, domain, created_at, updated_at FROM domains ORDER BY id ASC`)
+	rows, err := db.Query(`SELECT d.id, d.domain, d.created_at, d.updated_at, l.status, l.valid_to, l.days_left FROM domains d LEFT JOIN LATERAL (
+		SELECT status, valid_to, days_left FROM domain_logs WHERE domain_id = d.id ORDER BY checked_at DESC LIMIT 1
+	) l ON true ORDER BY d.id ASC`)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`{"error": "db error"}`))
@@ -68,14 +70,27 @@ func ListDomainsHandler(w http.ResponseWriter, r *http.Request) {
 	var domains []model.Domain
 	for rows.Next() {
 		var d model.Domain
-		var createdAt, updatedAt string
-		if err := rows.Scan(&d.ID, &d.Domain, &createdAt, &updatedAt); err != nil {
+		var createdAt, updatedAt, validTo sql.NullString
+		var status sql.NullString
+		var daysLeft sql.NullInt64
+		if err := rows.Scan(&d.ID, &d.Domain, &createdAt, &updatedAt, &status, &validTo, &daysLeft); err != nil {
 			continue
 		}
-		// 這裡不查憑證狀態，僅回傳 domain 基本資料
-		d.Status = "unknown"
-		d.ValidTo = ""
-		d.DaysLeft = 0
+		if status.Valid {
+			d.Status = status.String
+		} else {
+			d.Status = "unknown"
+		}
+		if validTo.Valid {
+			d.ValidTo = validTo.String
+		} else {
+			d.ValidTo = ""
+		}
+		if daysLeft.Valid {
+			d.DaysLeft = int(daysLeft.Int64)
+		} else {
+			d.DaysLeft = 0
+		}
 		domains = append(domains, d)
 	}
 	resp := struct {
@@ -92,7 +107,7 @@ func ListDomainsHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-// GetDomainHandler 取得單一 Domain 詳細資訊（實際抓取 SSL 憑證）
+// GetDomainHandler 取得單一 Domain 詳細資訊（實際抓取 SSL 憑證，並寫入狀態）
 func GetDomainHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method != http.MethodGet {
@@ -121,45 +136,63 @@ func GetDomainHandler(w http.ResponseWriter, r *http.Request) {
 		host += ":443"
 	}
 	conn, err := tls.Dial("tcp", host, nil)
+	var status, validFrom, validTo, issuer, serial, san string
+	var daysLeft int
 	if err != nil {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"domain": domain,
-			"status": "disconnected",
-			"error":  err.Error(),
-		})
-		return
+		status = "disconnected"
+	} else {
+		defer conn.Close()
+		certs := conn.ConnectionState().PeerCertificates
+		if len(certs) == 0 {
+			status = "error"
+		} else {
+			cert := certs[0]
+			validToTime := cert.NotAfter.UTC()
+			validFrom = cert.NotBefore.Format(time.RFC3339)
+			validTo = cert.NotAfter.Format(time.RFC3339)
+			daysLeft = int(time.Until(validToTime).Hours() / 24)
+			issuer = cert.Issuer.CommonName
+			serial = cert.SerialNumber.String()
+			san = strings.Join(cert.DNSNames, ",")
+			status = "valid"
+			if daysLeft < 0 {
+				status = "expired"
+			} else if daysLeft < 30 {
+				status = "expiring"
+			}
+		}
 	}
-	defer conn.Close()
-	certs := conn.ConnectionState().PeerCertificates
-	if len(certs) == 0 {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"domain": domain,
-			"status": "error",
-			"error":  "no certificate found",
-		})
-		return
+	// 將狀態寫入資料庫
+	_, _ = db.Exec(`UPDATE domains SET updated_at=NOW() WHERE domain=$1`, domain)
+	// 新增 log 紀錄，將非索引資料寫入 extra 欄位
+	var domainID int64
+	db.QueryRow(`SELECT id FROM domains WHERE domain=$1`, domain).Scan(&domainID)
+	extra := map[string]interface{}{
+		"issuer": issuer,
+		"serial": serial,
+		"san":    san,
+		"error": func() string {
+			if err != nil {
+				return err.Error()
+			}
+			return ""
+		}(),
 	}
-	cert := certs[0]
-	validTo := cert.NotAfter.UTC()
-	daysLeft := int(time.Until(validTo).Hours() / 24)
-	status := "valid"
-	if daysLeft < 0 {
-		status = "expired"
-	} else if daysLeft < 30 {
-		status = "expiring"
-	}
+	extraJSON, _ := json.Marshal(extra)
+	_, _ = db.Exec(`INSERT INTO domain_logs (domain_id, checked_at, status, valid_from, valid_to, days_left, extra) VALUES ($1, NOW(), $2, $3, $4, $5, $6)`,
+		domainID, status, validFrom, validTo, daysLeft, extraJSON,
+	)
+	// 若有需要可擴充寫入 status, valid_to, days_left 等欄位
 	resp := map[string]interface{}{
 		"domain":     domain,
-		"issuer":     cert.Issuer.CommonName,
-		"valid_from": cert.NotBefore.Format(time.RFC3339),
-		"valid_to":   cert.NotAfter.Format(time.RFC3339),
+		"issuer":     issuer,
+		"valid_from": validFrom,
+		"valid_to":   validTo,
 		"days_left":  daysLeft,
 		"status":     status,
-		"serial":     cert.SerialNumber.String(),
+		"serial":     serial,
 		"type":       "",
-		"san":        strings.Join(cert.DNSNames, ","),
+		"san":        san,
 	}
 	json.NewEncoder(w).Encode(resp)
 }
