@@ -21,9 +21,18 @@ func main() {
 	}
 	defer db.Close()
 
-	err = goose.Up(db, "./model")
+	// goose migration with retry/failback waiting
+	maxRetry := 10
+	for i := 1; i <= maxRetry; i++ {
+		err = goose.Up(db, "./model")
+		if err == nil {
+			break
+		}
+		log.Printf("goose migration failed (try %d/%d): %v", i, maxRetry, err)
+		time.Sleep(5 * time.Second)
+	}
 	if err != nil {
-		log.Fatalf("goose migration failed: %v", err)
+		log.Fatalf("goose migration failed after %d retries: %v", maxRetry, err)
 	}
 
 	// 初始化 DB
