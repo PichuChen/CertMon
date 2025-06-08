@@ -30,7 +30,7 @@
               <td class="w-[160px] sm:w-[220px] text-slate-700 truncate">{{ item.domain }}</td>
               <td class="w-[80px] sm:w-[100px] text-slate-700">{{ item.expiry }}</td>
               <td class="w-[80px] sm:w-[100px] text-slate-700">{{ item.daysLeft }}</td>
-              <td class="w-[80px] sm:w-[100px] flex items-center justify-center gap-2 mx-auto">
+              <td class="w-[80px] sm:w-[100px] items-center justify-center gap-2 mx-auto">
                 <span :class="['inline-block w-3 h-3 rounded-full', statusDotColor(item.status)]"></span>
                 <span class="text-slate-700">{{ statusText(item.status) }}</span>
               </td>
