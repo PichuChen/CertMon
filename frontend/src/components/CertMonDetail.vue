@@ -6,12 +6,17 @@
     <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-blue-400 mb-1 tracking-wide">憑證詳細</h1>
     <!-- 副標題 -->
     <div class="text-sm sm:text-base text-slate-500 mb-8">
-      這是 {{ cert.domain }} 的 SSL 憑證詳細資訊喔！
+      <template v-if="cert && cert.domain">
+        這是 {{ cert.domain }} 的 SSL 憑證詳細資訊喔！
+      </template>
+      <template v-else-if="!error">
+        載入中...
+      </template>
     </div>
 
     <!-- 卡片 -->
     <div class="bg-white rounded-[16px] shadow-md w-full max-w-[800px] px-2 sm:px-8 py-8 mb-6">
-      <template v-if="!error">
+      <template v-if="cert !== null && !error">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 sm:gap-x-8 gap-y-4">
           <div class="flex flex-col sm:flex-row">
             <span class="w-32 text-slate-500 text-[15px] sm:text-[16px] font-medium">網域 Domain</span>
@@ -52,9 +57,14 @@
           </div>
         </div>
       </template>
-      <template v-else>
+      <template v-else-if="error">
         <div class="text-slate-500 text-base text-center py-12 font-medium">
           找不到憑證資料，請重新整理或回到列表頁
+        </div>
+      </template>
+      <template v-else>
+        <div class="text-slate-400 text-base text-center py-12 font-medium">
+          載入中...
         </div>
       </template>
     </div>
@@ -71,21 +81,41 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
 
-// 靜態資料，實際可改為 API 請求
-const domains = [
-  { domain: 'example.com', expiry: '2024/07/01', daysLeft: 23, status: 'warning', issuer: 'Let\'s Encrypt', startDate: '2024/04/01', serial: '123456', type: 'DV', san: 'example.com,www.example.com' },
-  { domain: 'www.test.com', expiry: '2024/12/20', daysLeft: 195, status: 'ok', issuer: 'Google Trust', startDate: '2023/12/20', serial: '654321', type: 'OV', san: 'www.test.com' },
-  { domain: 'api.foo.com', expiry: '2025/03/15', daysLeft: 280, status: 'ok', issuer: 'Sectigo', startDate: '2024/03/15', serial: 'abcdef', type: 'EV', san: 'api.foo.com' },
-]
+const cert = ref(null)
+const error = ref(false)
 
-const cert = computed(() => domains.find(d => d.domain === route.params.domain))
-const error = computed(() => !cert.value)
+onMounted(async () => {
+  try {
+    const res = await fetch(`/api/domains/${route.params.domain}`)
+    if (!res.ok) throw new Error('API error')
+    const data = await res.json()
+    cert.value = {
+      domain: data.domain,
+      issuer: data.issuer || 'Let\'s Encrypt',
+      startDate: data.valid_from ? data.valid_from.slice(0, 10).replace(/-/g, '/') : '',
+      expiry: data.valid_to ? data.valid_to.slice(0, 10).replace(/-/g, '/') : '',
+      daysLeft: data.days_left,
+      status: convertStatus(data.status),
+      serial: data.serial || '',
+      type: data.type || '',
+      san: data.san || data.domain
+    }
+  } catch (e) {
+    error.value = true
+  }
+})
+
+function convertStatus(status) {
+  if (status === 'valid') return 'ok'
+  if (status === 'expiring') return 'warning'
+  return 'error'
+}
 
 function statusDotColor(status) {
   if (status === 'ok') return 'bg-green-400'
