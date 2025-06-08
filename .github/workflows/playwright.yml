@@ -18,7 +18,7 @@ jobs:
       - name: Print backend logs before wait-on
         run: docker logs $(docker ps -aqf "name=backend") || true
       - name: Wait for Backend
-        run: npx wait-on --timeout 120000 http://backend:8080
+        run: npx wait-on --timeout 120000 http://localhost:8080
       - name: Wait for Frontend
         run: npx wait-on --timeout 12000 http://localhost:5173
       - name: Setup Node.js
